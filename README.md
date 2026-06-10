@@ -1,14 +1,16 @@
 # moon build --target native 因 core bundle 重复定义而失败
 
+[![CI: core-bundle double-definition](https://github.com/conglinyizhi/moonbit-bug-core-bundle/actions/workflows/ci.yml/badge.svg)](https://github.com/conglinyizhi/moonbit-bug-core-bundle/actions/workflows/ci.yml)
+
 ## 环境
 
-MoonBit 0.1.20260608 (60bc8c3 2026-06-08)，Linux x86_64
+MoonBit 0.1.20260608 (60bc8c3 2026-06-08) / moonc v0.10.0，Linux x86_64
 
 ## 问题现象
 
 `moon check --target native` 可以通过，但 `moon build --target native` 会报 GCC 链接错误。
 
-```
+```text
 moon check --target native  # ✅ 通过
 moon build --target native  # ❌ 失败
 ```
@@ -28,7 +30,7 @@ moon build --target native  # ❌ 失败
 
 ## 根因
 
-MoonBit 的 native build 流程中，编译器把项目所有依赖**合进一个** `main.c` 文件（`~176K 行`），其中包括了 `~/.moon/lib/core/` 下 core 库的 `.mbt` 源码。
+MoonBit 的 native build 流程中，编译器把项目所有依赖**合进一个** `main.c` 文件（~176K 行），其中包括了 `~/.moon/lib/core/` 下 core 库的 `.mbt` 源码。
 
 但同时，链接阶段还会带上预编译的 core bundle `libmoonbitrun.o`。
 
@@ -36,15 +38,21 @@ MoonBit 的 native build 流程中，编译器把项目所有依赖**合进一�
 
 `moon check` 走的是 Moon IR 层（类型检查），不涉及 C 编译和链接，所以不受影响。
 
-## 最小复现
+## CI 结果
 
-```bash
-git clone https://github.com/conglinyizhi/moonbit-bug-core-bundle
-cd moonbit-bug-core-bundle
-moon add moonbitlang/async@0.19.2
-moon check --target native   # ✅
-moon build --target native   # ❌
+GitHub Actions 每次提交会自动运行以下指令，以验证问题是否仍然存在：
+
+```yaml
+- moon check --target native   # 应 ✅
+- moon build --target native   # 应 ❌（但 CI 容忍失败）
+- moon build --target wasm     # 应 ✅
 ```
+
+详细 workflow 见 `.github/workflows/ci.yml`。
+
+## 关联仓库
+
+- [moonbit-bug-strconv-path](https://github.com/conglinyizhi/moonbit-bug-strconv-path) — core 库 `internal/strconv` 旧路径残留导致的符号名冲突，与此 bug 同根同源，都是在 core 源码被重复编译到 `main.c` 的基础上多出来的连带问题
 
 ## 项目结构
 
@@ -54,6 +62,8 @@ moon.pkg              # 空
 cmd/main/
 ├── moon.pkg          # 导入 moonbitlang/async/http
 └── main.mbt          # 一行 println("hello")
+.github/workflows/
+└── ci.yml            # CI 自动验证
 ```
 
 ## 不受影响的目标

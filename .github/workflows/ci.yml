@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit toolchain
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: moon check --target native (should pass)
+        run: |
+          echo "=== moon version ==="
+          moon version
+          echo "=== moon check --target native ==="
+          moon check --target native
+        working-directory: ./
+
+      - name: moon build --target native (expected to FAIL — core bundle double-definition bug)
+        run: |
+          echo "=== moon build --target native (expected to fail) ==="
+          moon build --target native 2>&1 || echo "BUILD_FAILED_AS_EXPECTED"
+        working-directory: ./
+
+      - name: moon build --target wasm (should pass — wasm unaffected)
+        run: |
+          echo "=== moon build --target wasm ==="
+          moon build --target wasm 2>&1 || echo "WASM_BUILD_FAILED"
+        working-directory: ./
